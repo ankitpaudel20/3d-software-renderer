@@ -291,7 +291,7 @@ struct engine {
     /**
  * @brief nearplane of camera for clipping and culling
  */
-    float nearPlane = 0.0f;
+    float nearPlane = 1.0f;
 
     /**
  * @brief switch for backface culling
@@ -325,8 +325,8 @@ struct engine {
         color col;
         if (mesh->material.diffuse.w) {
             float intpart;
-            int tx = roundfloat(std::modf(v.v.texCoord.x / v.v.position.z, &intpart) * (mesh->material.diffuse.w - 1));
-            int ty = roundfloat(std::modf(v.v.texCoord.y / v.v.position.z, &intpart) * (mesh->material.diffuse.h - 1));
+            int tx = roundfloat(std::modf(v.v.texCoord.x, &intpart) * (mesh->material.diffuse.w - 1));
+            int ty = roundfloat(std::modf(v.v.texCoord.y, &intpart) * (mesh->material.diffuse.h - 1));
             auto ret = &mesh->material.diffuse.m_data[(abs(tx) + mesh->material.diffuse.w * abs(ty)) * mesh->material.diffuse.m_bpp];
             col = color(*ret, *(ret + 1), *(ret + 2));
         } else
@@ -338,20 +338,19 @@ struct engine {
 
         color result;
 #ifdef PHONG_SHADING
-        const auto fragpos = v.extraInfoAboutVertex / v.v.position.z;
-        const auto viewDir = (cam->eye - fragpos).normalize();
+        const auto viewDir = (cam->eye - v.extraInfoAboutVertex).normalize();
         for (auto &light : pointLights) {
-            float dist = vec3::dist(fragpos, light.getpos());
+            float dist = vec3::dist(v.extraInfoAboutVertex, light.getpos());
             float int_by_at = light.intensity / (light.constant + light.linear * dist + light.quadratic * (dist * dist));
             if (int_by_at > 0.01) {
-                result += CalcPointLight(light, v.v.normal / v.v.position.z, fragpos, viewDir, col, int_by_at, &mesh->material);
+                result += CalcPointLight(light, v.v.normal, v.extraInfoAboutVertex, viewDir, col, int_by_at, &mesh->material);
             }
         }
-        result += CalcDirLight(v.v.normal / v.v.position.z, viewDir, col, &mesh->material);
+        result += CalcDirLight(v.v.normal, viewDir, col, &mesh->material);
 #else
-        result += col * (v.extraInfoAboutVertex.x / v.v.position.z);
-        result += col * (v.extraInfoAboutVertex.y / v.v.position.z);
-        result += color(v.extraInfoAboutVertex.z / v.v.position.z);
+        result += col * (v.extraInfoAboutVertex.x);
+        result += col * (v.extraInfoAboutVertex.y);
+        result += color(v.extraInfoAboutVertex.z);
 #endif
         result += col * (ambientLightColor * ambientLightIntensity);
 
@@ -371,9 +370,8 @@ struct engine {
     //    }
     //}
 
-    /**
- * @brief draw rasterized triangle
- */
+    bool printed = false;
+
     /**
  * @brief fill triangles array by doing required clipping and culling
  */
@@ -424,7 +422,7 @@ struct engine {
             fillExtraInformationForGoraudShading(points[2], extraInfoAboutVertex[2]);
 #endif
 
-            if (clip[0] && clip[1] && clip[2]) {
+            if ((clip[0] && clip[1] && clip[2])) {
                 continue;
             } else if (clip[0]) {
                 if (clip[1]) {
@@ -669,6 +667,9 @@ struct engine {
                 auto gotz = getpixelZ_adjusted(x, y);
                 if (gotz < z) {
                     vx2 = vx0 + diff2 * u2;
+                    vx2.v.texCoord /= vx2.v.position.z;
+                    vx2.v.normal /= vx2.v.position.z;
+                    vx2.extraInfoAboutVertex /= vx2.v.position.z;
                     putpixel_adjusted(x, y, z, getcolor(vx2, mesh));
                 }
             }
@@ -724,6 +725,9 @@ struct engine {
                 const auto gotz = getpixelZ_adjusted(x, y);
                 if (gotz < z) {
                     vx2 = vx0 + diff2 * u2;
+                    vx2.v.texCoord /= vx2.v.position.z;
+                    vx2.v.normal /= vx2.v.position.z;
+                    vx2.extraInfoAboutVertex /= vx2.v.position.z;
                     putpixel_adjusted(x, y, z, getcolor(vx2, mesh));
                 }
             }
@@ -790,7 +794,9 @@ struct engine {
         });
 
 #else
+        int i = 0;
         for (auto &tris : triangles) {
+            // auto tris = triangles[0];
             auto &v0 = std::get<0>(tris)[0];
             auto &v1 = std::get<0>(tris)[1];
             auto &v2 = std::get<0>(tris)[2];
