@@ -266,7 +266,7 @@ int main(int argc, char **argv) {
     // auto textureBox = Model::loadModel_obj(path + "/Crate/Crate1.obj", "texturebox");
     // auto football_real = Model::loadModel_obj(path + "/Football/Football_LowPoly.obj", "football");
     // auto stupa = Model::loadModel_obj(path + "/swayambhunath/swayambhunath.obj", "city");
-    auto city = Model::loadModel_obj(path + "/city/citymodified.obj", "city");
+    auto city = Model::loadModel_obj(path + "/nanosuit/nanosuit.obj", "city");
     // auto texturedSquare = Model::loadModel_obj(path + "/texturedSquare.obj", "city");
     // rootNode.children["city"] = city;
 
